@@ -1,0 +1,39 @@
+{
+    "Dataset": {
+        "file_name":"wea_bias_corr.pkl",
+        "categorical_features":["series","cate", "year", "month"],
+        "real_value_features":["iMonth", "lagMedian12", "lagMedian6", "lagMedian3", "lagMedian1", "lagMean3"]
+   },
+
+   "Model": {
+        "MODEL_NAME":"ResnetEB",
+        "RNN": {
+            "TYPE": "LSTM",
+            "HIDDEN": 100,
+            "NUM_LAYER": 2
+        },
+        "NN": {
+            "TYPE":"RESNET",
+            "HIDDEN": 100,
+            "NUM_LAYER": 2
+        }
+   },
+
+    "Training": {
+        "BATCH_SIZE": 50000,
+        "LR": 1e-12,
+        "NUM_EPOCH": 10,
+        "SEQUENCE_LEN": 10,
+        "GRAD_CLIP": 5,
+        "LR_DECAY_EVERY": 5,
+        "LR_DECAY_FACTOR": 0.5,
+        "OPTIMIZER": "SGD",
+        "CRITERION": "MSE"
+    },
+
+    "Common":{
+        "print_every": 100000,
+        "checkpoint_every": 100000,
+        "checkpoint_name": "cv/M3_RESNET"
+    }
+}
