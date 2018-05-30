@@ -176,7 +176,7 @@ def main(argv=None):
     if GPU_DEV == -1:
         device = torch.device("cpu")
     elif GPU_DEV >= 0:
-        device = torch.device("cuda:".format(GPU_DEV))
+        device = torch.device("cuda:{}".format(GPU_DEV))
 
     data = load_data(device)
 
