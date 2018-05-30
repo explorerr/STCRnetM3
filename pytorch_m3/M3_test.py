@@ -27,6 +27,7 @@ CRITERION = "MSE"
 print_every = 100
 checkpoint_every = 100
 checkpoint_name = 'checkpoint'
+checkpoint_dir = ''
 
 FLOATTYPE = torch.FloatTensor
 LONGTYPE = torch.LongTensor
@@ -66,7 +67,7 @@ def error_metric(y_hat, y):
 def read_config(args):
 
     global BATCH_SIZE, LR, NUM_EPOCH, SEQUENCE_LEN, GPU_DEV
-    global print_every, checkpoint_every, checkpoint_name
+    global print_every, checkpoint_every, checkpoint_name, checkpoint_dir
     global GRAD_CLIP, LR_DECAY_EVERY, LR_DECAY_FACTOR, OPTIMIZER
     global MODEL_NAME, CRITERION
     global input_file_name, float_featureList, long_featureList, config_data, resume_from, error_metric_name
@@ -98,6 +99,7 @@ def read_config(args):
     print_every = config_data['Common']['print_every']
     checkpoint_every = config_data['Common']['checkpoint_every']
     checkpoint_name = config_data['Common']['checkpoint_name']
+    checkpoint_dir = config_data['Common']['checkpoint_dir']
     error_metric_name = config_data['Common']['error_metric']
     GPU_DEV = config_data['Common']['gpu']
     if not isinstance(GPU_DEV, int):
@@ -180,6 +182,10 @@ def main(argv=None):
 
     history = pd.DataFrame()
 
+    # make sure checkpoint saving dir exist
+    if not os.path.isdir(os.path.join(os.getcwd(), checkpoint_dir)):
+        os.mkdir(os.path.join(os.getcwd(), checkpoint_dir))
+
     # model = TwoLayerNet(sub_train_X.shape[1], 20, 1)
     # model = ResnetEB(100)
     xDim = data['sub_train_X_f'].size()[1] + data['sub_train_X_l'].size()[1]
@@ -191,7 +197,7 @@ def main(argv=None):
             model.apply(weights_init)
             epoch_start = 0
         else:
-            resume_from_file = checkpoint_name + resume_from['file'] + '.pkl'
+            resume_from_file = checkpoint_dir + checkpoint_name + resume_from['file'] + '.pkl'
             epoch_start = resume_from['epoch']
             if not os.path.isfile(resume_from_file):
                 raise Exception("resume_from file can not be found. resume_from:", resume_from_file)
@@ -263,14 +269,14 @@ def main(argv=None):
                 history = history.append(cur, sort=True)
 
                 check = {"opt": config_data, "history": history.reset_index().to_json()}
+                #print(y_pred_val.detach().numpy().shape)
+                y_val = pd.DataFrame({"y_val": data['sub_valid_Y'], 'y_val_pred': y_pred_val.detach().numpy()[:, 0]})
+                y_test = pd.DataFrame({"y_val": data['sub_test_Y'], 'y_val_pred': y_pred_test.detach().numpy()[:, 0]})
 
-                y_val = pd.DataFrame({"y_val": data['sub_valid_Y'], 'y_val_pred': y_pred_val})
-                y_test = pd.DataFrame({"y_val": data['sub_test_Y'], 'y_val_pred': y_pred_test})
-
-                with open('{}_{}_{}.json'.format(checkpoint_name, epoch + epoch_start, step), 'w') as fp:
+                with open('{}{}_{}_{}.json'.format(checkpoint_dir, checkpoint_name, epoch + epoch_start, step), 'w') as fp:
                     json.dump(check, fp)
                 # torch.save(model, '{}_{}_{}.pkl'.format(checkpoint_name, epoch, step))  # entire net
-                torch.save(model.state_dict(), '{}_param_{}_{}.pkl'.format(checkpoint_name, epoch + epoch_start, step))  # parameters
+                torch.save(model.state_dict(), '{}{}_param_{}_{}.pkl'.format(checkpoint_dir, checkpoint_name, epoch + epoch_start, step))  # parameters
 
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
