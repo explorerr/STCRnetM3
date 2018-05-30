@@ -22,12 +22,12 @@ def restore_params(net, et_name):
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        torch.nn.init.normal(m.weight.data)
+        torch.nn.init.normal_(m.weight.data)
     elif classname.find('BatchNorm') != -1:
-        torch.nn.init.normal(m.weight.data, mean=1)
-        torch.nn.init.constant(m.bias.data, 0)
+        torch.nn.init.normal_(m.weight.data, mean=1)
+        torch.nn.init.constant_(m.bias.data, 0)
     elif classname.find('Embedding') != -1:
-        torch.nn.init.normal(m.weight.data)
+        torch.nn.init.normal_(m.weight.data)
     elif classname.find('Linear') != -1:
-        torch.nn.init.normal(m.weight.data)
-        torch.nn.init.constant(m.bias.data, 0)
+        torch.nn.init.normal_(m.weight.data)
+        torch.nn.init.constant_(m.bias.data, 0)

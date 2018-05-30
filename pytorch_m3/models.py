@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 
-class Residual5(torch.nn.Module):
+class Residual5_0(torch.nn.Module):
 
     def __init__(self, xDim, H, activation="ReLU"):
         """
@@ -35,7 +35,36 @@ class Residual5(torch.nn.Module):
         out = self.bn1(x)
         out = self.actv(out)
         out = self.fc1(out).clamp(min=0)
-        out = self.fc2(self.relu(self.bn2(out)))
+        out = self.fc2(self.actv(self.bn2(out)))
+        return (out + x)
+
+
+class Residual5(torch.nn.Module):
+
+    def __init__(self, xDim, H, activation="ReLU"):
+        """
+        In this class we define a residual block
+        """
+        super(Residual5, self).__init__()
+        self.bn1 = nn.BatchNorm1d(xDim)
+        self.fc1 = nn.Linear(xDim, H)
+        self.bn2 = nn.BatchNorm1d(H)
+        self.fc2 = nn.Linear(H, xDim)
+        if activation == "ReLU":
+            self.actv = nn.ReLU(inplace=True)
+        elif activation == "Softplus":
+            self.actv = nn.Softplus(inplace=True)
+
+    def forward(self, x):
+        """
+        In the forward function we accept a Variable of input data and we must return
+        a Variable of output data. We can use Modules defined in the constructor as
+        well as arbitrary operators on Variables.
+        """
+        out = self.bn1(x)
+        out = self.actv(out)
+        out = self.fc1(out).clamp(min=0)
+        out = self.fc2(self.actv(self.bn2(out)))
         return (out + x)
 
 
@@ -61,7 +90,7 @@ class ResnetEB(torch.nn.Sequential):
         elif activation == "Softplus":
             self.outputLayer = torch.nn.Sequential(
                 nn.Linear(xDim, H),
-                nn.BatchNorm2d(H),
+                nn.BatchNorm1d(H),
                 nn.Softplus(),
                 nn.Dropout(0.2),
                 nn.Linear(H, 1))
@@ -74,7 +103,7 @@ class ResnetEB(torch.nn.Sequential):
         self.net = torch.nn.Sequential(Residual5(xDim, H))
         self.outputLayer = torch.nn.Sequential(
             nn.Linear(xDim, H),
-            nn.BatchNorm2d(H),
+            nn.BatchNorm1d(H),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(H, 1))
