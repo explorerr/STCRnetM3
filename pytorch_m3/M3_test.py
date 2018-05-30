@@ -41,19 +41,19 @@ resume_from = None
 
 
 def MAPE(y_hat, y):
-    return(torch.mean(torch.abs((y_hat - y) / y)).data[0])
+    return(torch.mean(torch.abs((y_hat - y) / y)).item())
 
 
 def MAE(y_hat, y):
-    return(torch.mean(torch.abs((y_hat - y))).data[0])
+    return(torch.mean(torch.abs((y_hat - y))).item())
 
 
 def MBE(y_hat, y):
-    return(torch.mean(y_hat - y).data[0])
+    return(torch.mean(y_hat - y).item())
 
 
 def SMAPE(y_hat, y):
-    return(torch.mean(torch.abs(y - y_hat) / torch.abs(y + y_hat))).data[0]
+    return(torch.mean(torch.abs(y - y_hat) / torch.abs(y + y_hat))).item()
 
 
 def error_metric(y_hat, y):
@@ -117,7 +117,7 @@ def read_config(args):
     except:
         pass
     try:
-        resume_from = config_data['Dataset']['resume_from']
+        resume_from = config_data['Common']['resume_from']
     except:
         pass
 
@@ -135,19 +135,21 @@ def load_data(device):
     # ['series', 'n', 'nf', 'cate', 'year', 'month', 'iMonth', 'qtty', 'mark', 'period', 'lagMedian12', 'lagMean12', 'lagMedianFirst3', 'lagMeanFirst3', 'lagMedian6', 'lagMean6', 'lagMedian4', 'lagMean4', 'lagMedian3', 'lagMean3', 'lagMean2', 'lagMedian1'], dtype='object')
 
     if len(float_featureList) > 0:
-        sub_train_X_f = Variable(torch.from_numpy(sub_train.as_matrix(columns=float_featureList).to(device=device)).type(FLOATTYPE))
-        sub_valid_X_f = Variable(torch.from_numpy(sub_valid.as_matrix(columns=float_featureList).to(device=device)).type(FLOATTYPE))
-        sub_test_X_f = Variable(torch.from_numpy(sub_test.as_matrix(columns=float_featureList).to(device=device)).type(FLOATTYPE))
+        sub_train_X_f = Variable(torch.from_numpy(sub_train[float_featureList].values).type(FLOATTYPE).to(device=device))
+        sub_valid_X_f = Variable(torch.from_numpy(sub_valid[float_featureList].values).type(FLOATTYPE).to(device=device))
+        sub_test_X_f = Variable(torch.from_numpy(sub_test[float_featureList].values).type(FLOATTYPE).to(device=device))
 
     if len(long_featureList) > 0:
-        sub_train_X_l = Variable(torch.from_numpy(sub_train.as_matrix(columns=long_featureList).to(device=device)).type(LONGTYPE))
-        sub_valid_X_l = Variable(torch.from_numpy(sub_valid.as_matrix(columns=long_featureList).to(device=device)).type(LONGTYPE))
-        sub_test_X_l = Variable(torch.from_numpy(sub_test.as_matrix(columns=long_featureList).to(device=device)).type(LONGTYPE))
+        sub_train_X_l = Variable(torch.from_numpy(sub_train[long_featureList].values).type(LONGTYPE).to(device=device))
+        sub_valid_X_l = Variable(torch.from_numpy(sub_valid[long_featureList].values).type(LONGTYPE).to(device=device))
+        sub_test_X_l = Variable(torch.from_numpy(sub_test[long_featureList].values).type(LONGTYPE).to(device=device))
 
-    sub_train_Y = Variable(torch.from_numpy(sub_train.as_matrix(columns=['qtty']).to(device=device)).type(FLOATTYPE))
-    sub_valid_Y = Variable(torch.from_numpy(sub_valid.as_matrix(columns=['qtty']).to(device=device)).type(FLOATTYPE))
-    sub_test_Y = Variable(torch.from_numpy(sub_test.as_matrix(columns=['qtty']).to(device=device)).type(FLOATTYPE))
-
+    sub_train_Y = Variable(torch.from_numpy(sub_train['qtty'].values).type(FLOATTYPE).to(device=device))
+    sub_train_Y = sub_train_Y.view((sub_train_X_f.size(0), 1))
+    ## print('sub_train_Y size: ', sub_train_Y.size())
+    sub_valid_Y = Variable(torch.from_numpy(sub_valid['qtty'].values).type(FLOATTYPE).to(device=device))
+    sub_test_Y = Variable(torch.from_numpy(sub_test['qtty'].values).type(FLOATTYPE).to(device=device))
+    # print(sub_train_Y.size())
     return({"sub_train_X_f": sub_train_X_f,
             "sub_valid_X_f": sub_valid_X_f,
             "sub_test_X_f": sub_test_X_f,
@@ -170,9 +172,9 @@ def main(argv=None):
     read_config(args)
 
     if GPU_DEV == -1:
-        device = torch.cuda.device("cpu")
+        device = torch.device("cpu")
     elif GPU_DEV >= 0:
-        device = torch.cuda.device("cuda:".format(GPU_DEV))
+        device = torch.device("cuda:".format(GPU_DEV))
 
     data = load_data(device)
 
@@ -181,6 +183,7 @@ def main(argv=None):
     # model = TwoLayerNet(sub_train_X.shape[1], 20, 1)
     # model = ResnetEB(100)
     xDim = data['sub_train_X_f'].size()[1] + data['sub_train_X_l'].size()[1]
+    # print('xDim=', xDim)
     print('input dimension: ', data['sub_train_X_f'].size()[0], xDim, )
     if MODEL_NAME == "ResnetEB":
         model = ResnetEB(xDim, config_data['Model']['NN']['HIDDEN'])
@@ -193,7 +196,9 @@ def main(argv=None):
             if not os.path.isfile(resume_from_file):
                 raise Exception("resume_from file can not be found. resume_from:", resume_from_file)
             model.load_state_dict(torch.load(resume_from_file))
+
     model = model.to(device=device)
+
     if CRITERION == "MSE":
         criterion = torch.nn.MSELoss(size_average=False)
     if OPTIMIZER == "SGD":
@@ -221,30 +226,33 @@ def main(argv=None):
             # print(batch_x_f.size())
             y_pred = model(batch_x_f, batch_x_l)
             loss = criterion(y_pred, batch_y)
-
+            # print(loss)
             if step == num_train / BATCH_SIZE - 1 and epoch % print_every == 0:
 
                 y_pred_val = model(data['sub_valid_X_f'], data['sub_valid_X_l'])
                 y_pred_test = model(data['sub_test_X_f'], data['sub_test_X_l'])
-                cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.data[0]],
+                cur = pd.DataFrame({'epoch': [epoch + epoch_start],
+                                    'step': [step],
+                                    'loss': [loss.item()],
                                     'training_err': [error_metric(y_pred, batch_y)],
                                     'validation_err': [error_metric(y_pred_val, data['sub_valid_Y'])],
                                     'testing_err': [error_metric(y_pred_test, data['sub_test_Y'])]
                                     })
                 print('Epoch[{}]-Step[{}]'.format(epoch + epoch_start, step),
-                      ': loss = {}'.format(loss.data[0]),
+                      ': loss = {}'.format(loss.item()),
                       '  |  training {} = {:.4f}'.format(error_metric_name,
                                                          cur.training_err[0]),
                       '  |  validation {} = {:.4f}'.format(error_metric_name,
                                                            cur.validation_err[0]),
                       '  |  testing {} = {:.4f}'.format(error_metric_name,
                                                         cur.testing_err[0]))
-                history = history.append(cur)
+                history = history.append(cur, sort=True)
 
             if step == num_train / BATCH_SIZE - 1 and epoch % checkpoint_every == 0:
                 y_pred_val = model(data['sub_valid_X_f'], data['sub_valid_X_l'])
                 y_pred_test = model(data['sub_test_X_f'], data['sub_test_X_l'])
-                cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.data[0]],
+                cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step],
+                                    'loss': [loss.item()],
                                     'training_' + error_metric_name:
                                     [error_metric(y_pred, batch_y)],
                                     'validation_' + error_metric_name:
@@ -252,9 +260,12 @@ def main(argv=None):
                                     'testing_' + error_metric_name:
                                     [error_metric(y_pred_test, data['sub_test_Y'])]
                                     })
-                history = history.append(cur)
+                history = history.append(cur, sort=True)
 
                 check = {"opt": config_data, "history": history.reset_index().to_json()}
+
+                y_val = pd.DataFrame({"y_val": data['sub_valid_Y'], 'y_val_pred': y_pred_val})
+                y_test = pd.DataFrame({"y_val": data['sub_test_Y'], 'y_val_pred': y_pred_test})
 
                 with open('{}_{}_{}.json'.format(checkpoint_name, epoch + epoch_start, step), 'w') as fp:
                     json.dump(check, fp)
