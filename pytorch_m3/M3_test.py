@@ -16,6 +16,7 @@ import json
 import pandas as pd
 
 
+GPU_DEV = -1
 BATCH_SIZE = 500
 LR = 1e-12
 LR_DECAY_FACTOR = .5
@@ -64,7 +65,7 @@ def error_metric(y_hat, y):
 
 def read_config(args):
 
-    global BATCH_SIZE, LR, NUM_EPOCH, SEQUENCE_LEN
+    global BATCH_SIZE, LR, NUM_EPOCH, SEQUENCE_LEN, GPU_DEV
     global print_every, checkpoint_every, checkpoint_name
     global GRAD_CLIP, LR_DECAY_EVERY, LR_DECAY_FACTOR, OPTIMIZER
     global MODEL_NAME, CRITERION
@@ -98,6 +99,9 @@ def read_config(args):
     checkpoint_every = config_data['Common']['checkpoint_every']
     checkpoint_name = config_data['Common']['checkpoint_name']
     error_metric_name = config_data['Common']['error_metric']
+    GPU_DEV = config_data['Common']['gpu']
+    if not isinstance(GPU_DEV, int):
+        raise ValueError("gpu device not an integer: ", GPU_DEV)
 
     MODEL_NAME = config_data['Model']['MODEL_NAME']
 
@@ -165,6 +169,11 @@ def main(argv=None):
 
     data = load_data()
 
+    if GPU_DEV > -1:
+        device = torch.device("cpu")
+    # elif GPU_DEV >= 0:
+    #    device = torch.device("cuda:".format(GPU_DEV))
+
     history = pd.DataFrame()
 
     # model = TwoLayerNet(sub_train_X.shape[1], 20, 1)
@@ -186,6 +195,8 @@ def main(argv=None):
         criterion = torch.nn.MSELoss(size_average=False)
     if OPTIMIZER == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=LR)
+    if OPTIMIZER == "Adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
     num_train = data['sub_train_X_f'].size()[0]
     if BATCH_SIZE == 0:

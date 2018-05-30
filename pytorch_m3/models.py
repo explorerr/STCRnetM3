@@ -12,7 +12,7 @@ import torch.nn as nn
 
 class Residual5(torch.nn.Module):
 
-    def __init__(self, xDim, H):
+    def __init__(self, xDim, H, activation="ReLU"):
         """
         In this class we define a residual block
         """
@@ -21,7 +21,10 @@ class Residual5(torch.nn.Module):
         self.fc1 = nn.Linear(xDim, H)
         self.bn2 = nn.BatchNorm2d(H)
         self.fc2 = nn.Linear(H, xDim)
-        self.relu = nn.ReLU(inplace=True)
+        if activation == "ReLU":
+            self.actv = nn.ReLU(inplace=True)
+        elif activation == "Softplus":
+            self.actv = nn.Softplus(inplace=True)
 
     def forward(self, x):
         """
@@ -30,7 +33,7 @@ class Residual5(torch.nn.Module):
         well as arbitrary operators on Variables.
         """
         out = self.bn1(x)
-        out = self.relu(out)
+        out = self.actv(out)
         out = self.fc1(out).clamp(min=0)
         out = self.fc2(self.relu(self.bn2(out)))
         return (out + x)
@@ -38,7 +41,7 @@ class Residual5(torch.nn.Module):
 
 class ResnetEB(torch.nn.Sequential):
 
-    def __init__(self, xDim, H):
+    def __init__(self, xDim, H, activation="ReLU"):
 
         super(ResnetEB, self).__init__()
         #self.net = torch.nn.Sequential()
@@ -47,6 +50,21 @@ class ResnetEB(torch.nn.Sequential):
         self.type_embedding = nn.Embedding(6, 2)
         self.nYear_embedding = nn.Embedding(149, 2)
         self.nMonth_embedding = nn.Embedding(12, 2)
+        if activation == "ReLU":
+            self.outputLayer = torch.nn.Sequential(
+                nn.Linear(xDim, H),
+                nn.BatchNorm2d(H),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(H, 1))
+
+        elif activation == "Softplus":
+            self.outputLayer = torch.nn.Sequential(
+                nn.Linear(xDim, H),
+                nn.BatchNorm2d(H),
+                nn.Softplus(),
+                nn.Dropout(0.2),
+                nn.Linear(H, 1))
         # self.net = torch.nn.Sequential(
         #     nn.Linear(22, H),
         #     nn.ReLU(True),
@@ -70,7 +88,7 @@ class ResnetEB(torch.nn.Sequential):
              x_f[:, 0:6]),
             1)
         out = self.net(embed_concat)
-        #print(out.size())
+        # print(out.size())
         return self.outputLayer(out)
 
 
