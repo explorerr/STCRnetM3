@@ -102,6 +102,8 @@ def read_config(args):
     GPU_DEV = config_data['Common']['gpu']
     if not isinstance(GPU_DEV, int):
         raise ValueError("gpu device not an integer: ", GPU_DEV)
+    if GPU_DEV > torch.cuda.device_count():
+        raise ValueError("gpu device number ({}) larger than available gpu device number ({})".format(GPU_DEV, torch.cuda.device_count()))
 
     MODEL_NAME = config_data['Model']['MODEL_NAME']
 
@@ -120,7 +122,7 @@ def read_config(args):
         pass
 
 
-def load_data():
+def load_data(device):
 
     # load the data:
     with open(input_file_name, 'rb') as f:
@@ -133,18 +135,18 @@ def load_data():
     # ['series', 'n', 'nf', 'cate', 'year', 'month', 'iMonth', 'qtty', 'mark', 'period', 'lagMedian12', 'lagMean12', 'lagMedianFirst3', 'lagMeanFirst3', 'lagMedian6', 'lagMean6', 'lagMedian4', 'lagMean4', 'lagMedian3', 'lagMean3', 'lagMean2', 'lagMedian1'], dtype='object')
 
     if len(float_featureList) > 0:
-        sub_train_X_f = Variable(torch.from_numpy(sub_train.as_matrix(columns=float_featureList)).type(FLOATTYPE))
-        sub_valid_X_f = Variable(torch.from_numpy(sub_valid.as_matrix(columns=float_featureList)).type(FLOATTYPE))
-        sub_test_X_f = Variable(torch.from_numpy(sub_test.as_matrix(columns=float_featureList)).type(FLOATTYPE))
+        sub_train_X_f = Variable(torch.from_numpy(sub_train.as_matrix(columns=float_featureList).to(device=device)).type(FLOATTYPE))
+        sub_valid_X_f = Variable(torch.from_numpy(sub_valid.as_matrix(columns=float_featureList).to(device=device)).type(FLOATTYPE))
+        sub_test_X_f = Variable(torch.from_numpy(sub_test.as_matrix(columns=float_featureList).to(device=device)).type(FLOATTYPE))
 
     if len(long_featureList) > 0:
-        sub_train_X_l = Variable(torch.from_numpy(sub_train.as_matrix(columns=long_featureList)).type(LONGTYPE))
-        sub_valid_X_l = Variable(torch.from_numpy(sub_valid.as_matrix(columns=long_featureList)).type(LONGTYPE))
-        sub_test_X_l = Variable(torch.from_numpy(sub_test.as_matrix(columns=long_featureList)).type(LONGTYPE))
+        sub_train_X_l = Variable(torch.from_numpy(sub_train.as_matrix(columns=long_featureList).to(device=device)).type(LONGTYPE))
+        sub_valid_X_l = Variable(torch.from_numpy(sub_valid.as_matrix(columns=long_featureList).to(device=device)).type(LONGTYPE))
+        sub_test_X_l = Variable(torch.from_numpy(sub_test.as_matrix(columns=long_featureList).to(device=device)).type(LONGTYPE))
 
-    sub_train_Y = Variable(torch.from_numpy(sub_train.as_matrix(columns=['qtty'])).type(FLOATTYPE))
-    sub_valid_Y = Variable(torch.from_numpy(sub_valid.as_matrix(columns=['qtty'])).type(FLOATTYPE))
-    sub_test_Y = Variable(torch.from_numpy(sub_test.as_matrix(columns=['qtty'])).type(FLOATTYPE))
+    sub_train_Y = Variable(torch.from_numpy(sub_train.as_matrix(columns=['qtty']).to(device=device)).type(FLOATTYPE))
+    sub_valid_Y = Variable(torch.from_numpy(sub_valid.as_matrix(columns=['qtty']).to(device=device)).type(FLOATTYPE))
+    sub_test_Y = Variable(torch.from_numpy(sub_test.as_matrix(columns=['qtty']).to(device=device)).type(FLOATTYPE))
 
     return({"sub_train_X_f": sub_train_X_f,
             "sub_valid_X_f": sub_valid_X_f,
@@ -167,12 +169,12 @@ def main(argv=None):
 
     read_config(args)
 
-    data = load_data()
+    if GPU_DEV == -1:
+        device = torch.cuda.device("cpu")
+    elif GPU_DEV >= 0:
+        device = torch.cuda.device("cuda:".format(GPU_DEV))
 
-    if GPU_DEV > -1:
-        device = torch.device("cpu")
-    # elif GPU_DEV >= 0:
-    #    device = torch.device("cuda:".format(GPU_DEV))
+    data = load_data(device)
 
     history = pd.DataFrame()
 
@@ -191,6 +193,7 @@ def main(argv=None):
             if not os.path.isfile(resume_from_file):
                 raise Exception("resume_from file can not be found. resume_from:", resume_from_file)
             model.load_state_dict(torch.load(resume_from_file))
+    model = model.to(device=device)
     if CRITERION == "MSE":
         criterion = torch.nn.MSELoss(size_average=False)
     if OPTIMIZER == "SGD":
