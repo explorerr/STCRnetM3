@@ -142,15 +142,16 @@ def load_data(device):
 
 
 def get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device):
-    y_pred_val = model(data['sub_valid_X_f'].to(device=device), data['sub_valid_X_l'].to(device=device))
-    y_pred_test = model(data['sub_test_X_f'].to(device=device), data['sub_test_X_l'].to(device=device))
+    print(error_metric_name)
+    y_pred_val = model(data['sub_valid_X_f'].to(device=device), data['sub_valid_X_l'].to(device=device)).cpu()
+    y_pred_test = model(data['sub_test_X_f'].to(device=device), data['sub_test_X_l'].to(device=device)).cpu()
     cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.item()],
                         'training_' + error_metric_name:
-                        [error_metric(y_pred, batch_y, error_metric_name)],
+                        [error_metric(y_pred[:, 0], batch_y[:, 0], error_metric_name)],
                         'validation_' + error_metric_name:
-                        [error_metric(y_pred_val, data['sub_valid_Y'].to(device), error_metric_name)],
+                        [error_metric(y_pred_val[:, 0], data['sub_valid_Y'], error_metric_name)],
                         'testing_' + error_metric_name:
-                        [error_metric(y_pred_test, data['sub_test_Y'].to(device), error_metric_name)]
+                        [error_metric(y_pred_test[:, 0], data['sub_test_Y'], error_metric_name)]
                         })
     return (y_pred_val, y_pred_test, cur)
 
@@ -272,6 +273,7 @@ def main(argv=None):
                                       'y_val_pred': y_pred_val.data.numpy()[:, 0]})
                 y_test = pd.DataFrame({"y_test": data['sub_test_Y'].data.numpy(),
                                        'y_test_pred': y_pred_test.data.numpy()[:, 0]})
+
                 y_val.to_csv('{}_{}_{}_val.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
                 y_test.to_csv('{}_{}_{}_test.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
 
