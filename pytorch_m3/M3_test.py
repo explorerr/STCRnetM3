@@ -247,6 +247,14 @@ def main(argv=None):
                 # torch.save(model, '{}_{}_{}.pkl'.format(checkpoint_name, epoch, step))  # entire net
                 torch.save(model.state_dict(), '{}_param_{}_{}.pkl'.format(checkpoint_name, epoch + epoch_start, step))  # parameters
 
+                #print(type(y_pred_val.data[:,0]), y_pred_val.data[:,0].size(), type(y_pred_val.data[:,0].numpy()), y_pred_val.data[:,0].numpy().shape)
+                #print(type(data['sub_valid_Y'].data.numpy()[:,0]), data['sub_valid_Y'].data.numpy()[:,0].shape)
+                y_val = pd.DataFrame({"y_val": data['sub_valid_Y'].data.numpy()[:,0], 'y_val_pred': y_pred_val.data.numpy()[:,0]})
+                y_test = pd.DataFrame({"y_test": data['sub_test_Y'].data.numpy()[:,0], 'y_test_pred': y_pred_test.data.numpy()[:,0]})
+                y_val.to_csv('{}_{}_{}_val.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
+                y_test.to_csv('{}_{}_{}_test.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
+
+
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()
