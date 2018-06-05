@@ -142,7 +142,7 @@ def load_data(device):
 
 
 def get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device):
-    print(error_metric_name)
+
     y_pred_val = model(data['sub_valid_X_f'].to(device=device), data['sub_valid_X_l'].to(device=device)).cpu()
     y_pred_test = model(data['sub_test_X_f'].to(device=device), data['sub_test_X_l'].to(device=device)).cpu()
     cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.item()],

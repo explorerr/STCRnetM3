@@ -34,7 +34,6 @@ def weights_init(m):
 
 
 def MAPE(y_hat, y):
-    print("in MAPE")
     return(torch.mean(torch.abs((y_hat - y) / y)).item())
 
 
@@ -52,7 +51,7 @@ def SMAPE(y_hat, y):
 
 
 def error_metric(y_hat, y, error_metric_name):
-    #print(error_metric_name)
+    # print(error_metric_name)
     if error_metric_name == 'SMAPE':
         return(SMAPE(y_hat, y))
     if error_metric_name == 'MAPE':
