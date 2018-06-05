@@ -141,6 +141,20 @@ def load_data(device):
             })
 
 
+def get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device):
+    y_pred_val = model(data['sub_valid_X_f'].to(device=device), data['sub_valid_X_l'].to(device=device))
+    y_pred_test = model(data['sub_test_X_f'].to(device=device), data['sub_test_X_l'].to(device=device))
+    cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.item()],
+                        'training_' + error_metric_name:
+                        [error_metric(y_pred, batch_y, error_metric_name)],
+                        'validation_' + error_metric_name:
+                        [error_metric(y_pred_val, data['sub_valid_Y'], error_metric_name)],
+                        'testing_' + error_metric_name:
+                        [error_metric(y_pred_test, data['sub_test_Y'], error_metric_name)]
+                        })
+    return (y_pred_val, y_pred_test, cur)
+
+
 def main(argv=None):
 
     global BATCH_SIZE, LR, NUM_EPOCH, error_metric_name
@@ -218,16 +232,8 @@ def main(argv=None):
 
             if step == num_train / BATCH_SIZE - 1 and epoch % print_every == 0:
 
-                y_pred_val = model(data['sub_valid_X_f'], data['sub_valid_X_l'])
-                y_pred_test = model(data['sub_test_X_f'], data['sub_test_X_l'])
-                cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.item()],
-                                    'training_' + error_metric_name:
-                                    [error_metric(y_pred, batch_y, error_metric_name)],
-                                    'validation_' + error_metric_name:
-                                    [error_metric(y_pred_val, data['sub_valid_Y'], error_metric_name)],
-                                    'testing_' + error_metric_name:
-                                    [error_metric(y_pred_test, data['sub_test_Y'], error_metric_name)]
-                                    })
+                y_pred_val, y_pred_test, cur = get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device)
+
                 print('Epoch[{}]-Step[{}]'.format(epoch + epoch_start, step),
                       ': loss = {}'.format(loss.item()),
                       '  |  training {} = {:.4f}'.format(error_metric_name,
@@ -239,17 +245,9 @@ def main(argv=None):
                 history = history.append(cur, sort=True)
 
             if step == num_train / BATCH_SIZE - 1 and epoch % checkpoint_every == 0:
-                y_pred_val = model(data['sub_valid_X_f'], data['sub_valid_X_l'])
-                y_pred_test = model(data['sub_test_X_f'], data['sub_test_X_l'])
-                cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step],
-                                    'loss': [loss.item()],
-                                    'training_' + error_metric_name:
-                                    [error_metric(y_pred, batch_y, error_metric_name)],
-                                    'validation_' + error_metric_name:
-                                    [error_metric(y_pred_val, data['sub_valid_Y'], error_metric_name)],
-                                    'testing_' + error_metric_name:
-                                    [error_metric(y_pred_test, data['sub_test_Y'], error_metric_name)]
-                                    })
+
+                y_pred_val, y_pred_test, cur = get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device)
+
                 history = history.append(cur, sort=True)
 
                 check = {"opt": config_data, "history": history.reset_index().to_json()}
