@@ -148,9 +148,9 @@ def get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device
                         'training_' + error_metric_name:
                         [error_metric(y_pred, batch_y, error_metric_name)],
                         'validation_' + error_metric_name:
-                        [error_metric(y_pred_val, data['sub_valid_Y'], error_metric_name)],
+                        [error_metric(y_pred_val, data['sub_valid_Y'].to(device), error_metric_name)],
                         'testing_' + error_metric_name:
-                        [error_metric(y_pred_test, data['sub_test_Y'], error_metric_name)]
+                        [error_metric(y_pred_test, data['sub_test_Y'].to(device), error_metric_name)]
                         })
     return (y_pred_val, y_pred_test, cur)
 
