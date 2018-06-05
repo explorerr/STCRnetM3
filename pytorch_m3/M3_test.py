@@ -41,29 +41,6 @@ error_metric_name = ''
 resume_from = None
 
 
-def MAPE(y_hat, y):
-    return(torch.mean(torch.abs((y_hat - y) / y)).item())
-
-
-def MAE(y_hat, y):
-    return(torch.mean(torch.abs((y_hat - y))).item())
-
-
-def MBE(y_hat, y):
-    return(torch.mean(y_hat - y).item())
-
-
-def SMAPE(y_hat, y):
-    return(torch.mean(torch.abs(y - y_hat) / torch.abs(y + y_hat))).item()
-
-
-def error_metric(y_hat, y):
-    if error_metric_name == 'SMAPE':
-        return(SMAPE(y_hat, y))
-    if error_metric_name == 'MAPE':
-        return(MAPE(y_hat, y))
-
-
 def read_config(args):
 
     global BATCH_SIZE, LR, NUM_EPOCH, SEQUENCE_LEN, GPU_DEV
@@ -137,20 +114,20 @@ def load_data(device):
     # ['series', 'n', 'nf', 'cate', 'year', 'month', 'iMonth', 'qtty', 'mark', 'period', 'lagMedian12', 'lagMean12', 'lagMedianFirst3', 'lagMeanFirst3', 'lagMedian6', 'lagMean6', 'lagMedian4', 'lagMean4', 'lagMedian3', 'lagMean3', 'lagMean2', 'lagMedian1'], dtype='object')
 
     if len(float_featureList) > 0:
-        sub_train_X_f = Variable(torch.from_numpy(sub_train[float_featureList].values).type(FLOATTYPE).to(device=device))
-        sub_valid_X_f = Variable(torch.from_numpy(sub_valid[float_featureList].values).type(FLOATTYPE).to(device=device))
-        sub_test_X_f = Variable(torch.from_numpy(sub_test[float_featureList].values).type(FLOATTYPE).to(device=device))
+        sub_train_X_f = Variable(torch.from_numpy(sub_train[float_featureList].values).type(FLOATTYPE))
+        sub_valid_X_f = Variable(torch.from_numpy(sub_valid[float_featureList].values).type(FLOATTYPE))
+        sub_test_X_f = Variable(torch.from_numpy(sub_test[float_featureList].values).type(FLOATTYPE))
 
     if len(long_featureList) > 0:
-        sub_train_X_l = Variable(torch.from_numpy(sub_train[long_featureList].values).type(LONGTYPE).to(device=device))
-        sub_valid_X_l = Variable(torch.from_numpy(sub_valid[long_featureList].values).type(LONGTYPE).to(device=device))
-        sub_test_X_l = Variable(torch.from_numpy(sub_test[long_featureList].values).type(LONGTYPE).to(device=device))
+        sub_train_X_l = Variable(torch.from_numpy(sub_train[long_featureList].values).type(LONGTYPE))
+        sub_valid_X_l = Variable(torch.from_numpy(sub_valid[long_featureList].values).type(LONGTYPE))
+        sub_test_X_l = Variable(torch.from_numpy(sub_test[long_featureList].values).type(LONGTYPE))
 
-    sub_train_Y = Variable(torch.from_numpy(sub_train['qtty'].values).type(FLOATTYPE).to(device=device))
+    sub_train_Y = Variable(torch.from_numpy(sub_train['qtty'].values).type(FLOATTYPE))
     sub_train_Y = sub_train_Y.view((sub_train_X_f.size(0), 1))
-    ## print('sub_train_Y size: ', sub_train_Y.size())
-    sub_valid_Y = Variable(torch.from_numpy(sub_valid['qtty'].values).type(FLOATTYPE).to(device=device))
-    sub_test_Y = Variable(torch.from_numpy(sub_test['qtty'].values).type(FLOATTYPE).to(device=device))
+    # print('sub_train_Y size: ', sub_train_Y.size())
+    sub_valid_Y = Variable(torch.from_numpy(sub_valid['qtty'].values).type(FLOATTYPE))
+    sub_test_Y = Variable(torch.from_numpy(sub_test['qtty'].values).type(FLOATTYPE))
     # print(sub_train_Y.size())
     return({"sub_train_X_f": sub_train_X_f,
             "sub_valid_X_f": sub_valid_X_f,
@@ -166,7 +143,7 @@ def load_data(device):
 
 def main(argv=None):
 
-    global BATCH_SIZE, LR, NUM_EPOCH
+    global BATCH_SIZE, LR, NUM_EPOCH, error_metric_name
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config_file', help="the configuration file with input specifications", default='config.json')
     args = parser.parse_args()
@@ -215,6 +192,7 @@ def main(argv=None):
     num_train = data['sub_train_X_f'].size()[0]
     if BATCH_SIZE == 0:
         BATCH_SIZE = num_train
+    # print(num_train, BATCH_SIZE, num_train / BATCH_SIZE - 1)
     # print(num_train, BATCH_SIZE)
     for epoch in range(NUM_EPOCH):
         # permutate the indecies for mini-batch training
@@ -222,36 +200,42 @@ def main(argv=None):
             permutation = torch.randperm(num_train)
 
         for step in range(0, num_train, BATCH_SIZE):
-            # print("step ", step)
+            # print( "step ", step)
             optimizer.zero_grad()
             if BATCH_SIZE < num_train:
                 indices = permutation[step: step + BATCH_SIZE]
                 batch_x_f, batch_x_l, batch_y = data['sub_train_X_f'][indices], data['sub_train_X_l'][indices], data['sub_train_Y'][indices]
             else:
                 batch_x_f, batch_x_l, batch_y = data['sub_train_X_f'], data['sub_train_X_l'], data['sub_train_Y']
+
+            batch_x_f = batch_x_f.to(device=device)
+            batch_x_l = batch_x_l.to(device=device)
+            batch_y = batch_y.to(device=device)
             # print(batch_x_f.size())
             y_pred = model(batch_x_f, batch_x_l)
             loss = criterion(y_pred, batch_y)
             # print(loss)
+
             if step == num_train / BATCH_SIZE - 1 and epoch % print_every == 0:
 
                 y_pred_val = model(data['sub_valid_X_f'], data['sub_valid_X_l'])
                 y_pred_test = model(data['sub_test_X_f'], data['sub_test_X_l'])
-                cur = pd.DataFrame({'epoch': [epoch + epoch_start],
-                                    'step': [step],
-                                    'loss': [loss.item()],
-                                    'training_err': [error_metric(y_pred, batch_y)],
-                                    'validation_err': [error_metric(y_pred_val, data['sub_valid_Y'])],
-                                    'testing_err': [error_metric(y_pred_test, data['sub_test_Y'])]
+                cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.item()],
+                                    'training_' + error_metric_name:
+                                    [error_metric(y_pred, batch_y, error_metric_name)],
+                                    'validation_' + error_metric_name:
+                                    [error_metric(y_pred_val, data['sub_valid_Y'], error_metric_name)],
+                                    'testing_' + error_metric_name:
+                                    [error_metric(y_pred_test, data['sub_test_Y'], error_metric_name)]
                                     })
                 print('Epoch[{}]-Step[{}]'.format(epoch + epoch_start, step),
                       ': loss = {}'.format(loss.item()),
                       '  |  training {} = {:.4f}'.format(error_metric_name,
-                                                         cur.training_err[0]),
+                                                         cur['training_' + error_metric_name][0]),
                       '  |  validation {} = {:.4f}'.format(error_metric_name,
-                                                           cur.validation_err[0]),
+                                                           cur['validation_' + error_metric_name][0]),
                       '  |  testing {} = {:.4f}'.format(error_metric_name,
-                                                        cur.testing_err[0]))
+                                                        cur['testing_' + error_metric_name][0]))
                 history = history.append(cur, sort=True)
 
             if step == num_train / BATCH_SIZE - 1 and epoch % checkpoint_every == 0:
@@ -260,16 +244,16 @@ def main(argv=None):
                 cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step],
                                     'loss': [loss.item()],
                                     'training_' + error_metric_name:
-                                    [error_metric(y_pred, batch_y)],
+                                    [error_metric(y_pred, batch_y, error_metric_name)],
                                     'validation_' + error_metric_name:
-                                    [error_metric(y_pred_val, data['sub_valid_Y'])],
+                                    [error_metric(y_pred_val, data['sub_valid_Y'], error_metric_name)],
                                     'testing_' + error_metric_name:
-                                    [error_metric(y_pred_test, data['sub_test_Y'])]
+                                    [error_metric(y_pred_test, data['sub_test_Y'], error_metric_name)]
                                     })
                 history = history.append(cur, sort=True)
 
                 check = {"opt": config_data, "history": history.reset_index().to_json()}
-                #print(y_pred_val.detach().numpy().shape)
+                # print(y_pred_val.detach().numpy().shape)
                 y_val = pd.DataFrame({"y_val": data['sub_valid_Y'], 'y_val_pred': y_pred_val.detach().numpy()[:, 0]})
                 y_test = pd.DataFrame({"y_val": data['sub_test_Y'], 'y_val_pred': y_pred_test.detach().numpy()[:, 0]})
 
@@ -277,6 +261,21 @@ def main(argv=None):
                     json.dump(check, fp)
                 # torch.save(model, '{}_{}_{}.pkl'.format(checkpoint_name, epoch, step))  # entire net
                 torch.save(model.state_dict(), '{}{}_param_{}_{}.pkl'.format(checkpoint_dir, checkpoint_name, epoch + epoch_start, step))  # parameters
+
+                # print(type(y_pred_val.data.numpy()),
+                #       y_pred_val.data.numpy().shape,
+                #       y_pred_val.data.numpy()[:, 0])
+
+                # print(type(data['sub_valid_Y'].data.numpy()),
+                #       data['sub_valid_Y'].data.numpy().shape,
+                #       data['sub_valid_Y'].data.numpy())
+
+                y_val = pd.DataFrame({"y_val": data['sub_valid_Y'].data.numpy(),
+                                      'y_val_pred': y_pred_val.data.numpy()[:, 0]})
+                y_test = pd.DataFrame({"y_test": data['sub_test_Y'].data.numpy(),
+                                       'y_test_pred': y_pred_test.data.numpy()[:, 0]})
+                y_val.to_csv('{}_{}_{}_val.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
+                y_test.to_csv('{}_{}_{}_test.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
 
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
