@@ -232,7 +232,7 @@ def main(argv=None):
             loss = criterion(y_pred, batch_y)
             # print(loss)
 
-            if step == num_train / BATCH_SIZE - 1 and epoch % print_every == 0:
+            if step == range(0, num_train, BATCH_SIZE)[-1] and epoch % print_every == 0:
 
                 y_pred_val, y_pred_test, cur = get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device)
 
@@ -246,7 +246,7 @@ def main(argv=None):
                                                         cur['testing_' + error_metric_name][0]))
                 history = history.append(cur, sort=True)
 
-            if step == num_train / BATCH_SIZE - 1 and epoch % checkpoint_every == 0:
+            if step == range(0, num_train, BATCH_SIZE)[-1] and epoch % checkpoint_every == 0:
 
                 y_pred_val, y_pred_test, cur = get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device)
 
