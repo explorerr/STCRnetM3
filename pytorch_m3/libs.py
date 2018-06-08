@@ -47,7 +47,7 @@ def MBE(y_hat, y):
 
 def SMAPE(y_hat, y):
     #print("in SMAPE: y.shape=", y.shape, '   y_hat.shape=', y_hat.shape)
-    return(torch.mean(torch.abs(y - y_hat) / (y + y_hat))).item()
+    return(2 * torch.mean(torch.abs(y - y_hat) / (y + y_hat))).item()
 
 
 def error_metric(y_hat, y, error_metric_name):

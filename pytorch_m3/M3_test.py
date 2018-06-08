@@ -142,7 +142,6 @@ def load_data(device):
 
 
 def get_err(data, y_pred, batch_y, model, epoch, epoch_start, step, loss, device):
-
     y_pred_val = model(data['sub_valid_X_f'].to(device=device), data['sub_valid_X_l'].to(device=device)).cpu()
     y_pred_test = model(data['sub_test_X_f'].to(device=device), data['sub_test_X_l'].to(device=device)).cpu()
     cur = pd.DataFrame({'epoch': [epoch + epoch_start], 'step': [step], "loss": [loss.item()],
@@ -199,6 +198,8 @@ def main(argv=None):
 
     if CRITERION == "MSE":
         criterion = torch.nn.MSELoss(size_average=False)
+    elif CRITERION == "ABS":
+        criterion = torch.nn.L1Loss()
     if OPTIMIZER == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=LR)
     if OPTIMIZER == "Adam":
@@ -274,8 +275,8 @@ def main(argv=None):
                 y_test = pd.DataFrame({"y_test": data['sub_test_Y'].data.numpy(),
                                        'y_test_pred': y_pred_test.data.numpy()[:, 0]})
 
-                y_val.to_csv('{}_{}_{}_val.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
-                y_test.to_csv('{}_{}_{}_test.csv'.format(checkpoint_name, epoch + epoch_start, step), index=False)
+                y_val.to_csv('{}{}_{}_{}_val.csv'.format(checkpoint_dir, checkpoint_name, epoch + epoch_start, step), index=False)
+                y_test.to_csv('{}{}_{}_{}_test.csv'.format(checkpoint_dir, checkpoint_name, epoch + epoch_start, step), index=False)
 
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients

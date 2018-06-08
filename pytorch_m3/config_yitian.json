@@ -1,0 +1,42 @@
+{
+    "Dataset": {
+        "file_name":"../modelPrepare.pkl",
+        "categorical_features":["Series","Category", "year", "month"],
+        "real_value_features":["iMonth", "lagMedian12", "lagMedian6", "lagMedian3", "lagMedian1", "lagMean3"]
+   },
+
+   "Model": {
+        "MODEL_NAME":"ResnetEB",
+        "RNN": {
+            "TYPE": "LSTM",
+            "HIDDEN": 100,
+            "NUM_LAYER": 2
+        },
+        "NN": {
+            "TYPE":"RESNET",
+            "HIDDEN": 100,
+            "NUM_LAYER": 2
+        }
+   },
+
+    "Training": {
+        "BATCH_SIZE": 512,
+        "LR": 5e-2,
+        "NUM_EPOCH": 2000,
+        "SEQUENCE_LEN": 10,
+        "GRAD_CLIP": 5,
+        "LR_DECAY_EVERY": 5,
+        "LR_DECAY_FACTOR": 0.5,
+        "OPTIMIZER": "Adam",
+        "CRITERION": "ABS"
+    },
+
+    "Common":{
+        "gpu":-1,
+        "print_every": 10,
+        "checkpoint_every": 100,
+        "checkpoint_dir": "cv/",
+        "checkpoint_name": "M3_RESNET",
+        "error_metric": "SMAPE"
+    }
+}
